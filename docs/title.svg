@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 150" role="img" aria-label="SHH">
+  <rect width="260" height="150" rx="8" fill="#1c1a16"/>
+  <g font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="16" font-weight="bold">
+    <text xml:space="preserve">
+      <tspan x="22" y="38"><tspan fill="#e63946">█████</tspan> <tspan fill="#3da66f">█   █</tspan> <tspan fill="#f0e6c0">█   █</tspan></tspan>
+      <tspan x="22" y="58"><tspan fill="#e63946">█    </tspan> <tspan fill="#3da66f">█   █</tspan> <tspan fill="#f0e6c0">█   █</tspan></tspan>
+      <tspan x="22" y="78"><tspan fill="#e63946">█████</tspan> <tspan fill="#3da66f">█████</tspan> <tspan fill="#f0e6c0">█████</tspan></tspan>
+      <tspan x="22" y="98"><tspan fill="#e63946">    █</tspan> <tspan fill="#3da66f">█   █</tspan> <tspan fill="#f0e6c0">█   █</tspan></tspan>
+      <tspan x="22" y="118"><tspan fill="#e63946">█████</tspan> <tspan fill="#3da66f">█   █</tspan> <tspan fill="#f0e6c0">█   █</tspan></tspan>
+    </text>
+  </g>
+</svg>

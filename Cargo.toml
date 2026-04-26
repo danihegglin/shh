@@ -1,0 +1,13 @@
+[package]
+name = "shh"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+crossterm = "0.28"
+directories = "5"
+ratatui = "0.29"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
