@@ -1,0 +1,24 @@
+# Rust
+/target
+/dist
+**/*.rs.bk
+*.pdb
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+
+# Project-local notes
+CLAUDE.md
+.claude/

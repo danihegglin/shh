@@ -1,0 +1,16 @@
+[package]
+name = "shh"
+version = "1.0.0"
+edition = "2024"
+description = "Fast SSH TUI connection manager"
+license = "MIT"
+repository = "https://github.com/danihegglin/shh"
+readme = "README.md"
+
+[dependencies]
+anyhow = "1"
+crossterm = "0.28"
+directories = "5"
+ratatui = "0.29"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
