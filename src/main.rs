@@ -53,19 +53,20 @@ fn main() -> Result<()> {
                 println!();
 
                 match ssh::connect(&group, &server, &defaults) {
-                    Ok(status) if status.success() => {
+                    Ok((status, _)) if status.success() => {
                         println!();
                         println!("  {DIM}← back to shh{RESET}");
                     }
-                    Ok(status) if status.code() == Some(255) => {
-                        print_connection_failed(&server.host, &preview);
+                    Ok((status, stderr)) if status.code() == Some(255) => {
+                        let diagnosis = ssh::classify_failure(&stderr);
+                        print_connection_failed(&server.host, &preview, &diagnosis);
                         wait_for_keypress()?;
                         app.flash = Some(Flash::err(format!(
                             "✗ {} — connection failed",
                             server.name
                         )));
                     }
-                    Ok(status) => {
+                    Ok((status, _)) => {
                         print_session_ended(&server.host, &preview, status);
                         app.flash = Some(Flash::err(format!(
                             "✗ {} — exit {}",
@@ -212,22 +213,17 @@ fn run_app(
     }
 }
 
-fn print_connection_failed(host: &str, command: &str) {
+fn print_connection_failed(host: &str, command: &str, diagnosis: &str) {
     eprintln!();
     eprintln!("  {RED_B}✗ connection failed{RESET}");
     eprintln!();
     eprintln!("  {DIM}command{RESET}   {}", command);
     eprintln!("  {DIM}host{RESET}      {}", host);
-    eprintln!("  {DIM}status{RESET}    exit 255  (ssh could not establish the connection)");
+    eprintln!("  {DIM}status{RESET}    exit 255");
     eprintln!();
-    eprintln!("  {DIM}common causes:{RESET}");
-    for cause in [
-        "host unreachable or DNS failure",
-        "port closed or firewalled",
-        "authentication rejected (wrong key or user)",
-        "host key mismatch",
-    ] {
-        eprintln!("    {YELLOW}•{RESET} {}", cause);
+    eprintln!("  {YELLOW}diagnosis{RESET}");
+    for line in diagnosis.lines() {
+        eprintln!("    {}", line);
     }
     eprintln!();
     eprintln!("  {DIM}press any key to return to shh{RESET}");
