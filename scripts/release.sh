@@ -14,7 +14,16 @@ set -euo pipefail
 
 NAME="shh"
 DIST="dist"
-VERSION="$(awk -F\" '/^version *=/ {print $2; exit}' Cargo.toml)"
+
+# Version: highest semver-sorted git tag (leading "v" or "v." stripped),
+# falling back to Cargo.toml if the repo has no tags.
+TAG="$(git tag --sort=-v:refname 2>/dev/null | head -n1 || true)"
+if [[ -n "$TAG" ]]; then
+  VERSION="${TAG#v}"
+  VERSION="${VERSION#.}"
+else
+  VERSION="$(awk -F\" '/^version *=/ {print $2; exit}' Cargo.toml)"
+fi
 
 TARGETS=(
   "aarch64-apple-darwin"        # Apple Silicon
@@ -31,6 +40,18 @@ need rustup
 need tar
 need zip
 need shasum
+
+friendly_suffix() {
+  case "$1" in
+    aarch64-apple-darwin)        echo "macos-arm64" ;;
+    x86_64-apple-darwin)         echo "macos-x64" ;;
+    universal-apple-darwin)      echo "macos-universal" ;;
+    aarch64-unknown-linux-musl)  echo "linux-arm64" ;;
+    x86_64-unknown-linux-musl)   echo "linux-x64" ;;
+    x86_64-pc-windows-gnu)       echo "windows-x64" ;;
+    *) echo "$1" ;;
+  esac
+}
 
 if ! command -v zig >/dev/null 2>&1; then
   echo "zig not found — install with: brew install zig" >&2
@@ -66,7 +87,7 @@ build_one() {
       ;;
   esac
 
-  local stem="${NAME}-v${VERSION}-${target}"
+  local stem="${NAME}-v${VERSION}-$(friendly_suffix "$target")"
   if [[ "$target" == *windows* ]]; then
     local bin="${NAME}.exe"
     local archive="${DIST}/${stem}.zip"
@@ -92,7 +113,7 @@ if [[ -f "$arm_bin" && -f "$x86_bin" ]]; then
   uni_dir="target/universal-apple-darwin/release"
   mkdir -p "$uni_dir"
   lipo -create "$arm_bin" "$x86_bin" -output "$uni_dir/$NAME"
-  archive="${DIST}/${NAME}-v${VERSION}-universal-apple-darwin.tar.gz"
+  archive="${DIST}/${NAME}-v${VERSION}-$(friendly_suffix universal-apple-darwin).tar.gz"
   tar -czf "$archive" -C "$uni_dir" "$NAME"
   echo "    $archive"
 fi
