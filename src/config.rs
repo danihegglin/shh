@@ -191,9 +191,12 @@ fn is_unsafe_control(c: char) -> bool {
 }
 
 pub fn config_path() -> Result<PathBuf> {
-    let dirs = directories::ProjectDirs::from("", "", "shh")
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+        .or_else(|| std::env::var_os("USERPROFILE").map(|h| PathBuf::from(h).join(".config")))
         .context("could not determine config directory")?;
-    Ok(dirs.config_dir().join("config.toml"))
+    Ok(base.join("shh").join("config.toml"))
 }
 
 const DEFAULT_CONFIG: &str = r#"# shh — ssh connection manager
