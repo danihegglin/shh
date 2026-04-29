@@ -786,13 +786,38 @@ fn validate_host(s: &str) -> Option<String> {
     if s.chars().any(|c| c.is_whitespace() || c.is_control()) {
         return Some("host cannot contain whitespace".into());
     }
-    const BAD: &[char] = &[
-        ';', '|', '&', '$', '`', '\'', '"', '<', '>', '(', ')', '\\', '#',
-    ];
-    if let Some(c) = s.chars().find(|c| BAD.contains(c)) {
-        return Some(format!("invalid character '{}' in host", c));
+
+    let ip_candidate = s
+        .strip_prefix('[')
+        .and_then(|r| r.strip_suffix(']'))
+        .unwrap_or(s);
+    if ip_candidate.parse::<std::net::IpAddr>().is_ok() {
+        return None;
     }
-    None
+    if is_valid_hostname(s) {
+        return None;
+    }
+    Some("host must be a hostname or IP address".into())
+}
+
+fn is_valid_hostname(s: &str) -> bool {
+    if s.is_empty() || s.len() > 253 {
+        return false;
+    }
+    let s = s.strip_suffix('.').unwrap_or(s);
+    s.split('.').all(is_valid_label)
+}
+
+fn is_valid_label(label: &str) -> bool {
+    let bytes = label.as_bytes();
+    let len = bytes.len();
+    if len == 0 || len > 63 {
+        return false;
+    }
+    if bytes[0] == b'-' || bytes[len - 1] == b'-' {
+        return false;
+    }
+    label.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 fn prune_empty_groups(config: &mut Config) {
