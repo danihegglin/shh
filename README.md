@@ -12,6 +12,8 @@ Browse, filter, connect — just pure speed between you and your servers.
 ---
 ## Install
 
+Building from source requires **Rust 1.85+** (edition 2024) with `cargo`. Get it from [rustup.rs](https://rustup.rs).
+
 ```sh
 git clone https://github.com/danihegglin/shh.git
 cd shh
