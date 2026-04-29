@@ -794,6 +794,9 @@ fn validate_host(s: &str) -> Option<String> {
     if ip_candidate.parse::<std::net::IpAddr>().is_ok() {
         return None;
     }
+    if s.bytes().all(|b| b.is_ascii_digit() || b == b'.') {
+        return Some("not a valid IPv4 address".into());
+    }
     if is_valid_hostname(s) {
         return None;
     }
