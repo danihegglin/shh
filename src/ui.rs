@@ -220,8 +220,8 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
                 ]),
                 Line::from(""),
                 detail_row("host", &server.host, theme::SECONDARY),
-                detail_row("user", user.as_deref().unwrap_or("(none)"), theme::PRIMARY),
-                detail_row("key", key.as_deref().unwrap_or("(none)"), theme::WARN),
+                detail_row("user", user.as_deref().unwrap_or("(default)"), theme::PRIMARY),
+                detail_row("key", key.as_deref().unwrap_or("(default)"), theme::WARN),
                 detail_row("port", &port.to_string(), theme::MUTED),
             ];
 
