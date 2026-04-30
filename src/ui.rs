@@ -334,21 +334,22 @@ fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let hints: Vec<(&str, &str)> = {
-        let mut h = vec![("↑↓", "nav"), ("⏎", "connect / toggle"), ("←", "fold")];
-        if !app.query.is_empty() {
-            h.push(("⌫", "delete"));
-            h.push(("esc", "clear"));
-        } else {
-            h.push(("type", "to filter"));
+        let on_group = app.is_on_group();
+        let mut h: Vec<(&str, &str)> = Vec::new();
+        if !on_group {
+            h.push(("⏎", "connect"));
+        }
+        if app.query.is_empty() {
+            h.push(("type", "filter"));
             h.push(("esc", "quit"));
+        } else {
+            h.push(("esc", "clear"));
         }
         h.push(("ctrl-a", "add"));
-        if app.current_server().is_some() {
-            h.push(("ctrl-e", "edit"));
-            h.push(("ctrl-d", "delete"));
-        }
-        if !app.config.groups.is_empty() {
-            h.push(("ctrl-r", "rename group"));
+        h.push(("ctrl-e", "edit"));
+        h.push(("ctrl-d", "delete"));
+        if on_group {
+            h.push(("ctrl-r", "rename"));
         }
         h
     };

@@ -191,12 +191,8 @@ impl App {
     pub fn enter(&mut self) -> Option<Action> {
         let rows = self.visible_rows();
         match rows.get(self.selected).copied()? {
-            Row::Group(gi) => {
-                self.expanded[gi] = !self.expanded[gi];
-                self.clamp_selection();
-                None
-            }
             Row::Server(gi, si) => Some(Action::Connect(gi, si)),
+            Row::Group(_) => None,
         }
     }
 
@@ -215,6 +211,13 @@ impl App {
             Row::Server(gi, si) => Some((gi, si, &self.config.groups[gi].servers[si])),
             _ => None,
         }
+    }
+
+    pub fn is_on_group(&self) -> bool {
+        matches!(
+            self.visible_rows().get(self.selected),
+            Some(Row::Group(_))
+        )
     }
 
     pub fn start_wizard(&mut self) {

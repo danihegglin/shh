@@ -27,8 +27,8 @@ Or download a binary from the release page.
 | key         | action                          |
 | ----------- | ------------------------------- |
 | `↑` `↓`     | navigate                        |
-| `enter` / `→` | connect, or fold/expand a group |
-| `←`         | fold/unfold                     |
+| `enter` / `→` | connect to selected host        |
+| `←`         | fold/unfold a group             |
 | *type*      | filter the list                 |
 | `ctrl-a`    | add new host                    |
 | `ctrl-e`    | edit selected host              |
