@@ -129,13 +129,11 @@ fn draw_tree(f: &mut Frame, area: Rect, app: &mut App) {
                 let expanded = app.expanded.get(gi).copied().unwrap_or(true) || filtering;
                 let arrow = if expanded { "▾" } else { "▸" };
                 let icon = g.icon.as_deref().unwrap_or("●");
-                let count = g.servers.len();
                 ListItem::new(Line::from(vec![
                     Span::styled(format!(" {} ", arrow), Style::new().fg(theme::ACCENT)),
                     Span::styled(icon.to_string(), Style::new().fg(theme::PRIMARY)),
                     Span::raw(" "),
                     Span::styled(g.name.clone(), Style::new().fg(theme::TEXT).bold()),
-                    Span::styled(format!("  {}", count), Style::new().fg(theme::DIM)),
                 ]))
             }
             Row::Server(gi, si) => {
@@ -786,10 +784,6 @@ fn draw_group_picker(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
             Span::styled(arrow, arrow_style),
             Span::styled(format!("{} ", icon), Style::new().fg(theme::ACCENT)),
             Span::styled(g.name.clone(), name_style),
-            Span::styled(
-                format!("   {} hosts", g.servers.len()),
-                Style::new().fg(theme::DIM),
-            ),
         ]));
     }
 
