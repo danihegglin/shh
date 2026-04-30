@@ -202,12 +202,26 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
     match app.current_server() {
         Some((gi, _si, server)) => {
             let group = &app.config.groups[gi];
-            let user = server.resolved_user(group, &app.config.defaults);
+            let user = server.resolved_user(group);
             let key = server.resolved_key(group, &app.config.defaults);
             let port = server.resolved_port(&app.config.defaults);
 
-            let user_display = with_default_marker(user.as_deref(), server.user.is_none());
-            let key_display = with_default_marker(key.as_deref(), server.key.is_none());
+            let user_display = match user.as_deref() {
+                Some(v) if server.user.is_some() => v.to_string(),
+                Some(v) => format!("{} (default)", v),
+                None => match std::env::var("USER") {
+                    Ok(u) if !u.is_empty() => format!("{} (system)", u),
+                    _ => "(default)".to_string(),
+                },
+            };
+            let key_display = match key.as_deref() {
+                Some(v) if server.key.is_some() => v.to_string(),
+                Some(v) => format!("{} (default)", v),
+                None => match ssh::system_default_key() {
+                    Some(k) => format!("{} (system)", k),
+                    None => "(default)".to_string(),
+                },
+            };
             let port_display = with_default_marker(
                 Some(port.to_string()).as_deref(),
                 server.port.is_none(),
@@ -653,14 +667,7 @@ fn draw_wizard_step(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
         WizardStep::NewGroupName => draw_text_step(f, area, w, "New group name", "", true),
         WizardStep::ServerName => draw_text_step(f, area, w, "Server name", "web-01", true),
         WizardStep::Host => draw_text_step(f, area, w, "Host", "host.example.com", true),
-        WizardStep::User => draw_text_step(
-            f,
-            area,
-            w,
-            "User",
-            app.config.defaults.user.as_deref().unwrap_or(""),
-            false,
-        ),
+        WizardStep::User => draw_text_step(f, area, w, "User", "", false),
         WizardStep::Key => draw_key_picker(f, area, w),
         WizardStep::Port => draw_text_step(f, area, w, "Port", "22", false),
         WizardStep::Flags => draw_text_step(f, area, w, "Extra SSH flags", "", false),
@@ -835,10 +842,8 @@ fn draw_confirm(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
         w.draft.port.clone()
     };
     let user_display = if w.draft.user.is_empty() {
-        app.config
-            .defaults
-            .user
-            .clone()
+        w.group_idx
+            .and_then(|gi| app.config.groups.get(gi).and_then(|g| g.user.clone()))
             .map(|u| format!("{}  (default)", u))
             .unwrap_or_else(|| "—".into())
     } else {

@@ -16,8 +16,6 @@ pub struct Config {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Defaults {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub user: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
@@ -55,11 +53,8 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn resolved_user(&self, group: &Group, defaults: &Defaults) -> Option<String> {
-        self.user
-            .clone()
-            .or_else(|| group.user.clone())
-            .or_else(|| defaults.user.clone())
+    pub fn resolved_user(&self, group: &Group) -> Option<String> {
+        self.user.clone().or_else(|| group.user.clone())
     }
 
     pub fn resolved_key(&self, group: &Group, defaults: &Defaults) -> Option<String> {
@@ -150,7 +145,6 @@ fn tighten_permissions(path: &Path) {
 fn tighten_permissions(_path: &Path) {}
 
 fn sanitize_config(c: &mut Config) {
-    sanitize_opt(&mut c.defaults.user);
     sanitize_opt(&mut c.defaults.key);
     for g in &mut c.groups {
         sanitize_str(&mut g.name);
@@ -203,14 +197,13 @@ const DEFAULT_CONFIG: &str = r#"# shh — ssh connection manager
 # Edit this file to manage your hosts. Reload by restarting shh.
 
 [defaults]
-# user = "your-username"
 # key  = "~/.ssh/id_ed25519"
 # port = 22
 
 [[group]]
 name = "Examples"
 icon = "✦"
-# user = "deploy"   # group-level default, overridden by [defaults]
+# user = "deploy"   # group-level default for all servers in this group
 # key  = "~/.ssh/group_key"
 
 [[group.server]]

@@ -12,7 +12,7 @@ pub struct KeyInfo {
 }
 
 pub fn connect(group: &Group, server: &Server, defaults: &Defaults) -> Result<(ExitStatus, String)> {
-    let user = server.resolved_user(group, defaults);
+    let user = server.resolved_user(group);
     let key = server.resolved_key(group, defaults);
     let port = server.resolved_port(defaults);
 
@@ -123,7 +123,7 @@ pub fn classify_failure(stderr: &str) -> String {
 }
 
 pub fn command_preview(group: &Group, server: &Server, defaults: &Defaults) -> String {
-    let user = server.resolved_user(group, defaults);
+    let user = server.resolved_user(group);
     let key = server.resolved_key(group, defaults);
     let port = server.resolved_port(defaults);
     let mut out = String::from("ssh ");
@@ -145,6 +145,17 @@ pub fn command_preview(group: &Group, server: &Server, defaults: &Defaults) -> S
         }
     }
     out
+}
+
+pub fn system_default_key() -> Option<String> {
+    let home = std::env::var("HOME").ok()?;
+    let dir = std::path::Path::new(&home).join(".ssh");
+    for name in &["id_ed25519", "id_ecdsa", "id_rsa", "id_dsa"] {
+        if dir.join(name).is_file() {
+            return Some(format!("~/.ssh/{}", name));
+        }
+    }
+    None
 }
 
 pub fn expand_tilde(path: &str) -> String {

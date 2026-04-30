@@ -44,7 +44,6 @@ Hosts are managed in-app — `ctrl-a` to add, `ctrl-e` to edit. State is persist
 
 ```toml
 [defaults]
-user = "dani"
 key  = "~/.ssh/id_ed25519"
 port = 22
 
@@ -58,7 +57,7 @@ user = "deploy"
 flags = "-A"
 ```
 
-Resolution order for `user` / `key` / `port`: **server → group → defaults**. Most-specific wins.
+Resolution order: `user` is **server → group**; `key` and `port` are **server → group → defaults**. Most-specific wins.
 
 ## SSH flags per host
 
