@@ -206,6 +206,13 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
             let key = server.resolved_key(group, &app.config.defaults);
             let port = server.resolved_port(&app.config.defaults);
 
+            let user_display = with_default_marker(user.as_deref(), server.user.is_none());
+            let key_display = with_default_marker(key.as_deref(), server.key.is_none());
+            let port_display = with_default_marker(
+                Some(port.to_string()).as_deref(),
+                server.port.is_none(),
+            );
+
             let mut lines = vec![
                 Line::from(vec![
                     Span::styled("◆ ", Style::new().fg(theme::PRIMARY)),
@@ -220,9 +227,9 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
                 ]),
                 Line::from(""),
                 detail_row("host", &server.host, theme::SECONDARY),
-                detail_row("user", user.as_deref().unwrap_or("(default)"), theme::PRIMARY),
-                detail_row("key", key.as_deref().unwrap_or("(default)"), theme::WARN),
-                detail_row("port", &port.to_string(), theme::MUTED),
+                detail_row("user", &user_display, theme::PRIMARY),
+                detail_row("key", &key_display, theme::WARN),
+                detail_row("port", &port_display, theme::MUTED),
             ];
 
             if let Some(flags) = server.flags.as_deref().filter(|s| !s.is_empty()) {
@@ -312,6 +319,14 @@ fn detail_row(label: &str, value: &str, color: Color) -> Line<'static> {
         Span::styled(format!("  {:<6}", label), Style::new().fg(theme::DIM)),
         Span::styled(value.to_string(), Style::new().fg(color)),
     ])
+}
+
+fn with_default_marker(value: Option<&str>, is_inherited: bool) -> String {
+    match (value, is_inherited) {
+        (Some(v), true) => format!("{} (default)", v),
+        (Some(v), false) => v.to_string(),
+        (None, _) => "(default)".to_string(),
+    }
 }
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
