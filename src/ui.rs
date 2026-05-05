@@ -9,7 +9,7 @@ use ratatui::{
 };
 
 use crate::{
-    app::{App, FlashKind, RenameGroup, Row, Wizard, WizardMode, WizardStep},
+    app::{App, DeleteTarget, FlashKind, RenameGroup, Row, Wizard, WizardMode, WizardStep},
     ssh, theme,
 };
 
@@ -36,8 +36,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
     if let Some(w) = app.wizard.as_ref() {
         draw_wizard(f, area, app, w);
-    } else if let Some((gi, si)) = app.delete_confirm {
-        draw_delete_confirm(f, area, app, gi, si);
+    } else if let Some(target) = app.delete_confirm {
+        draw_delete_confirm(f, area, app, target);
     } else if let Some(r) = app.rename_group.as_ref() {
         draw_rename_group(f, area, app, r);
     }
@@ -472,12 +472,61 @@ fn draw_rename_group(f: &mut Frame, area: Rect, app: &App, r: &RenameGroup) {
     f.render_widget(Paragraph::new(lines).block(block), modal);
 }
 
-fn draw_delete_confirm(f: &mut Frame, area: Rect, app: &App, gi: usize, si: usize) {
+fn draw_delete_confirm(f: &mut Frame, area: Rect, app: &App, target: DeleteTarget) {
     let modal = centered_rect(54, 13, area);
     f.render_widget(Clear, modal);
 
-    let server = &app.config.groups[gi].servers[si];
-    let group = &app.config.groups[gi];
+    let (title_text, subject_lines) = match target {
+        DeleteTarget::Server { gi, si } => {
+            let server = &app.config.groups[gi].servers[si];
+            let group = &app.config.groups[gi];
+            (
+                "DELETE HOST",
+                vec![
+                    Line::from(vec![
+                        Span::styled("◆ ", Style::new().fg(theme::PRIMARY)),
+                        Span::styled(
+                            server.name.clone(),
+                            Style::new().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+                        ),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("  "),
+                        Span::styled(server.host.clone(), Style::new().fg(theme::MUTED).italic()),
+                    ]),
+                    Line::from(vec![
+                        Span::styled("  in ", Style::new().fg(theme::DIM)),
+                        Span::styled(group.name.clone(), Style::new().fg(theme::ACCENT)),
+                    ]),
+                ],
+            )
+        }
+        DeleteTarget::Group { gi } => {
+            let group = &app.config.groups[gi];
+            let count = group.servers.len();
+            let host_word = if count == 1 { "host" } else { "hosts" };
+            let icon = group.icon.as_deref().unwrap_or("●");
+            (
+                "DELETE GROUP",
+                vec![
+                    Line::from(vec![
+                        Span::styled(format!("{} ", icon), Style::new().fg(theme::PRIMARY)),
+                        Span::styled(
+                            group.name.clone(),
+                            Style::new().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+                        ),
+                    ]),
+                    Line::from(vec![
+                        Span::raw("  "),
+                        Span::styled(
+                            format!("{} {} will be removed", count, host_word),
+                            Style::new().fg(theme::MUTED).italic(),
+                        ),
+                    ]),
+                ],
+            )
+        }
+    };
 
     let block = Block::default()
         .borders(Borders::ALL)
@@ -487,51 +536,35 @@ fn draw_delete_confirm(f: &mut Frame, area: Rect, app: &App, gi: usize, si: usiz
             Span::raw(" "),
             Span::styled("⚠ ", Style::new().fg(theme::WARN)),
             Span::styled(
-                "DELETE HOST",
+                title_text,
                 Style::new().fg(theme::PRIMARY).add_modifier(Modifier::BOLD),
             ),
             Span::raw(" "),
         ]))
         .padding(Padding::new(2, 2, 1, 1));
 
-    let lines = vec![
-        Line::from(vec![
-            Span::styled("◆ ", Style::new().fg(theme::PRIMARY)),
-            Span::styled(
-                server.name.clone(),
-                Style::new().fg(theme::TEXT).add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(vec![
-            Span::raw("  "),
-            Span::styled(server.host.clone(), Style::new().fg(theme::MUTED).italic()),
-        ]),
-        Line::from(vec![
-            Span::styled("  in ", Style::new().fg(theme::DIM)),
-            Span::styled(group.name.clone(), Style::new().fg(theme::ACCENT)),
-        ]),
-        Line::from(""),
-        Line::from(Span::styled(
-            "This cannot be undone.",
-            Style::new().fg(theme::WARN),
-        )),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled(
-                "y / ⏎",
-                Style::new().fg(theme::PRIMARY).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(" "),
-            Span::styled("delete", Style::new().fg(theme::MUTED)),
-            Span::styled("    ·    ", Style::new().fg(theme::DIM)),
-            Span::styled(
-                "n / esc",
-                Style::new().fg(theme::PRIMARY).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw(" "),
-            Span::styled("cancel", Style::new().fg(theme::MUTED)),
-        ]),
-    ];
+    let mut lines = subject_lines;
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "This cannot be undone.",
+        Style::new().fg(theme::WARN),
+    )));
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "y / ⏎",
+            Style::new().fg(theme::PRIMARY).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" "),
+        Span::styled("delete", Style::new().fg(theme::MUTED)),
+        Span::styled("    ·    ", Style::new().fg(theme::DIM)),
+        Span::styled(
+            "n / esc",
+            Style::new().fg(theme::PRIMARY).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(" "),
+        Span::styled("cancel", Style::new().fg(theme::MUTED)),
+    ]));
 
     f.render_widget(Paragraph::new(lines).block(block), modal);
 }

@@ -100,13 +100,19 @@ pub struct RenameGroup {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum DeleteTarget {
+    Server { gi: usize, si: usize },
+    Group { gi: usize },
+}
+
 pub struct App {
     pub config: Config,
     pub expanded: Vec<bool>,
     pub selected: usize,
     pub query: String,
     pub wizard: Option<Wizard>,
-    pub delete_confirm: Option<(usize, usize)>,
+    pub delete_confirm: Option<DeleteTarget>,
     pub rename_group: Option<RenameGroup>,
     pub flash: Option<Flash>,
 }
@@ -285,9 +291,14 @@ impl App {
     }
 
     pub fn start_delete_confirm(&mut self) {
-        if let Some((gi, si, _)) = self.current_server() {
-            self.delete_confirm = Some((gi, si));
-        }
+        let rows = self.visible_rows();
+        let Some(row) = rows.get(self.selected).copied() else {
+            return;
+        };
+        self.delete_confirm = Some(match row {
+            Row::Server(gi, si) => DeleteTarget::Server { gi, si },
+            Row::Group(gi) => DeleteTarget::Group { gi },
+        });
     }
 
     pub fn cancel_delete(&mut self) {
@@ -381,14 +392,28 @@ impl App {
     }
 
     pub fn commit_delete(&mut self) -> Result<()> {
-        let Some((gi, si)) = self.delete_confirm.take() else {
+        let Some(target) = self.delete_confirm.take() else {
             return Ok(());
         };
-        if gi >= self.config.groups.len() || si >= self.config.groups[gi].servers.len() {
-            return Ok(());
-        }
         let mut new_config = self.config.clone();
-        let removed = new_config.groups[gi].servers.remove(si);
+        let message = match target {
+            DeleteTarget::Server { gi, si } => {
+                if gi >= new_config.groups.len() || si >= new_config.groups[gi].servers.len() {
+                    return Ok(());
+                }
+                let removed = new_config.groups[gi].servers.remove(si);
+                format!("✓ deleted {}", removed.name)
+            }
+            DeleteTarget::Group { gi } => {
+                if gi >= new_config.groups.len() {
+                    return Ok(());
+                }
+                let removed = new_config.groups.remove(gi);
+                let count = removed.servers.len();
+                let host_word = if count == 1 { "host" } else { "hosts" };
+                format!("✓ deleted group {} ({} {})", removed.name, count, host_word)
+            }
+        };
         prune_empty_groups(&mut new_config);
         if let Err(e) = new_config.save() {
             self.flash = Some(Flash::err(format!("✗ delete failed: {}", e)));
@@ -399,7 +424,7 @@ impl App {
         self.config = new_config;
         self.expanded = new_expanded;
         self.clamp_selection();
-        self.flash = Some(Flash::ok(format!("✓ deleted {}", removed.name)));
+        self.flash = Some(Flash::ok(message));
         Ok(())
     }
 
