@@ -800,17 +800,6 @@ fn draw_key_picker(f: &mut Frame, area: Rect, w: &Wizard) {
             Span::styled(arrow, arrow_style),
             Span::styled(label, style),
         ]));
-
-        if selected && !opt.path.is_empty() {
-            let sub = match &opt.info {
-                Some(info) => format!("    {}  ·  {}", info.algorithm, info.fingerprint),
-                None => "    (no .pub file — fingerprint unavailable)".to_string(),
-            };
-            lines.push(Line::from(Span::styled(
-                sub,
-                Style::new().fg(theme::MUTED).italic(),
-            )));
-        }
     }
 
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), area);

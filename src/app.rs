@@ -1,12 +1,11 @@
 use anyhow::Result;
 
 use crate::config::{Config, Group, Server};
-use crate::ssh::{self, KeyInfo};
+use crate::ssh;
 
 #[derive(Debug, Clone)]
 pub struct KeyOption {
     pub path: String,
-    pub info: Option<KeyInfo>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -780,20 +779,17 @@ fn sync_input(w: &mut Wizard) {
 fn build_key_options(existing: &str) -> Vec<KeyOption> {
     let mut opts = vec![KeyOption {
         path: String::new(),
-        info: None,
     }];
     let discovered = ssh::discover_ssh_keys();
     let trimmed = existing.trim();
     let in_discovered = !trimmed.is_empty() && discovered.iter().any(|k| k == trimmed);
     if !trimmed.is_empty() && !in_discovered {
         opts.push(KeyOption {
-            info: ssh::key_fingerprint(trimmed),
             path: trimmed.to_string(),
         });
     }
     for path in discovered {
-        let info = ssh::key_fingerprint(&path);
-        opts.push(KeyOption { path, info });
+        opts.push(KeyOption { path });
     }
     opts
 }

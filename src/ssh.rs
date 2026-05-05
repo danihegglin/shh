@@ -5,12 +5,6 @@ use std::sync::{Arc, Mutex};
 
 use crate::config::{Defaults, Group, Server};
 
-#[derive(Debug, Clone)]
-pub struct KeyInfo {
-    pub algorithm: String,
-    pub fingerprint: String,
-}
-
 pub fn connect(group: &Group, server: &Server, defaults: &Defaults) -> Result<(ExitStatus, String)> {
     let user = server.resolved_user(group);
     let key = server.resolved_key(group, defaults);
@@ -201,40 +195,6 @@ pub fn discover_ssh_keys() -> Vec<String> {
     }
     keys.sort();
     keys
-}
-
-pub fn key_fingerprint(path: &str) -> Option<KeyInfo> {
-    let expanded = expand_tilde(path);
-    let pub_path = format!("{}.pub", expanded);
-    if !std::path::Path::new(&pub_path).exists() {
-        return None;
-    }
-    let output = Command::new("ssh-keygen")
-        .args(["-l", "-f", &pub_path])
-        .stdin(Stdio::null())
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    parse_keygen_line(&String::from_utf8_lossy(&output.stdout))
-}
-
-fn parse_keygen_line(out: &str) -> Option<KeyInfo> {
-    let line = out.lines().next()?.trim();
-    let mut tokens = line.splitn(3, ' ');
-    let _bits = tokens.next()?;
-    let fingerprint = tokens.next()?.to_string();
-    let rest = tokens.next()?;
-    let algorithm = rest
-        .rfind('(')
-        .filter(|_| rest.ends_with(')'))
-        .map(|start| rest[start + 1..rest.len() - 1].to_string())
-        .unwrap_or_default();
-    Some(KeyInfo {
-        algorithm,
-        fingerprint,
-    })
 }
 
 fn looks_like_private_key(path: &std::path::Path) -> bool {
