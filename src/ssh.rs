@@ -20,10 +20,16 @@ pub fn connect(group: &Group, server: &Server, defaults: &Defaults) -> Result<(E
     if port != 22 {
         cmd.arg("-p").arg(port.to_string());
     }
-    if let Some(k) = key {
-        cmd.arg("-i").arg(expand_tilde(&k));
+    if server.password {
+        cmd.arg("-o")
+            .arg("PreferredAuthentications=password,keyboard-interactive");
+        cmd.arg("-o").arg("PubkeyAuthentication=no");
+    } else {
+        if let Some(k) = key {
+            cmd.arg("-i").arg(expand_tilde(&k));
+        }
+        cmd.arg("-o").arg("AddKeysToAgent=yes");
     }
-    cmd.arg("-o").arg("AddKeysToAgent=yes");
     if let Some(flags) = server.flags.as_deref() {
         for arg in flags.split_whitespace() {
             cmd.arg(arg);
@@ -130,10 +136,15 @@ pub fn command_preview(group: &Group, server: &Server, defaults: &Defaults) -> S
     if port != 22 {
         out.push_str(&format!(" -p {}", port));
     }
-    if let Some(k) = key {
-        out.push_str(&format!(" -i {}", k));
+    if server.password {
+        out.push_str(" -o PreferredAuthentications=password,keyboard-interactive");
+        out.push_str(" -o PubkeyAuthentication=no");
+    } else {
+        if let Some(k) = key {
+            out.push_str(&format!(" -i {}", k));
+        }
+        out.push_str(" -o AddKeysToAgent=yes");
     }
-    out.push_str(" -o AddKeysToAgent=yes");
     if let Some(flags) = server.flags.as_deref() {
         if !flags.is_empty() {
             out.push(' ');

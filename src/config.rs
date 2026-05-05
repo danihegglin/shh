@@ -42,6 +42,8 @@ pub struct Server {
     pub user: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub password: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -50,6 +52,10 @@ pub struct Server {
     pub tags: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl Server {

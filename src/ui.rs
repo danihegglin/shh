@@ -9,7 +9,9 @@ use ratatui::{
 };
 
 use crate::{
-    app::{App, DeleteTarget, FlashKind, RenameGroup, Row, Wizard, WizardMode, WizardStep},
+    app::{
+        App, DeleteTarget, FlashKind, KeyOption, RenameGroup, Row, Wizard, WizardMode, WizardStep,
+    },
     ssh, theme,
 };
 
@@ -215,6 +217,7 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
                 },
             };
             let key_display = match key.as_deref() {
+                _ if server.password => "(prompted)".to_string(),
                 Some(v) if server.key.is_some() => v.to_string(),
                 Some(v) => format!("{} (default)", v),
                 None => match ssh::system_default_key() {
@@ -222,6 +225,7 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
                     None => "(default)".to_string(),
                 },
             };
+            let key_label = if server.password { "pwd" } else { "key" };
             let port_display = with_default_marker(
                 Some(port.to_string()).as_deref(),
                 server.port.is_none(),
@@ -242,7 +246,7 @@ fn draw_details(f: &mut Frame, area: Rect, app: &App) {
                 Line::from(""),
                 detail_row("host", &server.host, theme::SECONDARY),
                 detail_row("user", &user_display, theme::PRIMARY),
-                detail_row("key", &key_display, theme::WARN),
+                detail_row(key_label, &key_display, theme::WARN),
                 detail_row("port", &port_display, theme::MUTED),
             ];
 
@@ -629,7 +633,8 @@ fn step_label(w: &Wizard) -> &'static str {
         WizardStep::ServerName => "name",
         WizardStep::Host => "host",
         WizardStep::User => "user",
-        WizardStep::Key => "key",
+        WizardStep::Key => "auth",
+        WizardStep::KeyPath => "key path",
         WizardStep::Port => "port",
         WizardStep::Flags => "flags",
         WizardStep::Tags => "tags",
@@ -647,7 +652,7 @@ fn step_progress(w: &Wizard) -> (usize, usize) {
             WizardStep::ServerName => 3,
             WizardStep::Host => 4,
             WizardStep::User => 5,
-            WizardStep::Key => 6,
+            WizardStep::Key | WizardStep::KeyPath => 6,
             WizardStep::Port => 7,
             WizardStep::Flags => 8,
             WizardStep::Tags => 9,
@@ -662,7 +667,7 @@ fn step_progress(w: &Wizard) -> (usize, usize) {
             WizardStep::ServerName => 2,
             WizardStep::Host => 3,
             WizardStep::User => 4,
-            WizardStep::Key => 5,
+            WizardStep::Key | WizardStep::KeyPath => 5,
             WizardStep::Port => 6,
             WizardStep::Flags => 7,
             WizardStep::Tags => 8,
@@ -702,6 +707,7 @@ fn draw_wizard_step(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
         WizardStep::Host => draw_text_step(f, area, w, "Host", "host.example.com", true),
         WizardStep::User => draw_text_step(f, area, w, "User", "", false),
         WizardStep::Key => draw_key_picker(f, area, w),
+        WizardStep::KeyPath => draw_text_step(f, area, w, "Key path", "~/.ssh/id_custom", true),
         WizardStep::Port => draw_text_step(f, area, w, "Port", "22", false),
         WizardStep::Flags => draw_text_step(f, area, w, "Extra SSH flags", "", false),
         WizardStep::Tags => draw_text_step(f, area, w, "Tags  (comma-separated)", "", false),
@@ -763,15 +769,20 @@ fn draw_text_step(
 }
 
 fn draw_key_picker(f: &mut Frame, area: Rect, w: &Wizard) {
-    let hint = if w.key_options.len() > 1 {
-        "from ~/.ssh/  (↑↓ to choose)"
+    let key_count = w
+        .key_options
+        .iter()
+        .filter(|o| matches!(o, KeyOption::Key(_)))
+        .count();
+    let hint = if key_count > 0 {
+        "↑↓ to choose"
     } else {
         "no private keys found in ~/.ssh/"
     };
     let mut lines = vec![
         Line::from(vec![
             Span::styled(
-                "Identity file",
+                "Authentication",
                 Style::new().fg(theme::TEXT).add_modifier(Modifier::BOLD),
             ),
             Span::raw("  "),
@@ -781,13 +792,17 @@ fn draw_key_picker(f: &mut Frame, area: Rect, w: &Wizard) {
     ];
 
     for (i, opt) in w.key_options.iter().enumerate() {
+        if matches!(opt, KeyOption::Password) {
+            lines.push(Line::from(""));
+        }
         let selected = w.key_pick == i;
         let arrow = if selected { "▍ " } else { "  " };
         let arrow_style = Style::new().fg(if selected { theme::PRIMARY } else { theme::DIM });
-        let (label, base_color) = if opt.path.is_empty() {
-            ("(none — fall through to default)".to_string(), theme::MUTED)
-        } else {
-            (opt.path.clone(), theme::WARN)
+        let (label, base_color) = match opt {
+            KeyOption::Default => ("default".to_string(), theme::MUTED),
+            KeyOption::Key(path) => (path.clone(), theme::WARN),
+            KeyOption::Custom => ("+ custom path…".to_string(), theme::SUCCESS),
+            KeyOption::Password => ("password".to_string(), theme::SECONDARY),
         };
         let style = if selected {
             Style::new()
@@ -871,7 +886,9 @@ fn draw_confirm(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
     } else {
         w.draft.user.clone()
     };
-    let key_display = if w.draft.key.is_empty() {
+    let key_display = if w.draft.password {
+        "(prompted)".into()
+    } else if w.draft.key.is_empty() {
         app.config
             .defaults
             .key
@@ -881,6 +898,7 @@ fn draw_confirm(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
     } else {
         w.draft.key.clone()
     };
+    let key_label = if w.draft.password { "pwd" } else { "key" };
     let flags_display = if w.draft.flags.is_empty() {
         "—".into()
     } else {
@@ -914,7 +932,7 @@ fn draw_confirm(f: &mut Frame, area: Rect, app: &App, w: &Wizard) {
         confirm_row("name", &w.draft.name, theme::PRIMARY),
         confirm_row("host", &w.draft.host, theme::SECONDARY),
         confirm_row("user", &user_display, theme::TEXT),
-        confirm_row("key", &key_display, theme::WARN),
+        confirm_row(key_label, &key_display, theme::WARN),
         confirm_row("port", &port_display, theme::TEXT),
         confirm_row("flags", &flags_display, theme::ACCENT),
         confirm_row("tags", &tags_display, theme::TEXT),
@@ -946,6 +964,7 @@ fn draw_wizard_hints(f: &mut Frame, area: Rect, w: &Wizard) {
             ("←", "back"),
             ("esc", "cancel"),
         ],
+        WizardStep::KeyPath => vec![("⏎", "next"), ("←", "back"), ("esc", "cancel")],
         WizardStep::Confirm => vec![("⏎", "save"), ("↑", "back"), ("esc", "cancel")],
         _ => vec![("⏎", "next"), ("↑", "back"), ("esc", "cancel")],
     };

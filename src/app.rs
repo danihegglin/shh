@@ -4,8 +4,11 @@ use crate::config::{Config, Group, Server};
 use crate::ssh;
 
 #[derive(Debug, Clone)]
-pub struct KeyOption {
-    pub path: String,
+pub enum KeyOption {
+    Default,
+    Key(String),
+    Custom,
+    Password,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -27,6 +30,7 @@ pub enum WizardStep {
     Host,
     User,
     Key,
+    KeyPath,
     Port,
     Flags,
     Tags,
@@ -46,6 +50,7 @@ pub struct ServerDraft {
     pub host: String,
     pub user: String,
     pub key: String,
+    pub password: bool,
     pub port: String,
     pub flags: String,
     pub tags: String,
@@ -257,15 +262,23 @@ impl App {
         };
         let existing_key = server.key.clone().unwrap_or_default();
         let key_options = build_key_options(&existing_key);
-        let key_pick = key_options
-            .iter()
-            .position(|k| k.path == existing_key)
-            .unwrap_or(0);
+        let key_pick = if server.password {
+            key_options
+                .iter()
+                .position(|o| matches!(o, KeyOption::Password))
+                .unwrap_or(0)
+        } else {
+            key_options
+                .iter()
+                .position(|o| matches!(o, KeyOption::Key(p) if *p == existing_key))
+                .unwrap_or(0)
+        };
         let draft = ServerDraft {
             name: server.name.clone(),
             host: server.host.clone(),
             user: server.user.clone().unwrap_or_default(),
             key: existing_key,
+            password: server.password,
             port: server.port.map(|p| p.to_string()).unwrap_or_default(),
             flags: server.flags.clone().unwrap_or_default(),
             tags: server.tags.join(", "),
@@ -507,7 +520,14 @@ impl App {
                 WizardStep::Host => WizardStep::ServerName,
                 WizardStep::User => WizardStep::Host,
                 WizardStep::Key => WizardStep::User,
-                WizardStep::Port => WizardStep::Key,
+                WizardStep::KeyPath => WizardStep::Key,
+                WizardStep::Port => {
+                    if matches!(w.key_options.get(w.key_pick), Some(KeyOption::Custom)) {
+                        WizardStep::KeyPath
+                    } else {
+                        WizardStep::Key
+                    }
+                }
                 WizardStep::Flags => WizardStep::Port,
                 WizardStep::Tags => WizardStep::Flags,
                 WizardStep::Description => WizardStep::Tags,
@@ -580,11 +600,38 @@ impl App {
                     sync_input(w);
                 }
                 WizardStep::Key => {
-                    w.draft.key = w
-                        .key_options
-                        .get(w.key_pick)
-                        .map(|o| o.path.clone())
-                        .unwrap_or_default();
+                    let next = match w.key_options.get(w.key_pick) {
+                        Some(KeyOption::Default) | None => {
+                            w.draft.key = String::new();
+                            w.draft.password = false;
+                            WizardStep::Port
+                        }
+                        Some(KeyOption::Key(path)) => {
+                            w.draft.key = path.clone();
+                            w.draft.password = false;
+                            WizardStep::Port
+                        }
+                        Some(KeyOption::Custom) => {
+                            w.draft.password = false;
+                            WizardStep::KeyPath
+                        }
+                        Some(KeyOption::Password) => {
+                            w.draft.key = String::new();
+                            w.draft.password = true;
+                            WizardStep::Port
+                        }
+                    };
+                    w.step = next;
+                    w.error = None;
+                    sync_input(w);
+                }
+                WizardStep::KeyPath => {
+                    let v = w.input.trim().to_string();
+                    if v.is_empty() {
+                        w.error = Some("path required (use back to pick another option)".into());
+                        return Ok(());
+                    }
+                    w.draft.key = v;
                     w.step = WizardStep::Port;
                     w.error = None;
                     sync_input(w);
@@ -671,7 +718,12 @@ impl App {
             name: w.draft.name.clone(),
             host: w.draft.host.clone(),
             user: opt_string(&w.draft.user),
-            key: opt_string(&w.draft.key),
+            key: if w.draft.password {
+                None
+            } else {
+                opt_string(&w.draft.key)
+            },
+            password: w.draft.password,
             port,
             flags: opt_string(&w.draft.flags),
             tags,
@@ -761,6 +813,7 @@ fn sync_input(w: &mut Wizard) {
         WizardStep::ServerName => w.draft.name.clone(),
         WizardStep::Host => w.draft.host.clone(),
         WizardStep::User => w.draft.user.clone(),
+        WizardStep::KeyPath => w.draft.key.clone(),
         WizardStep::Port => w.draft.port.clone(),
         WizardStep::Flags => w.draft.flags.clone(),
         WizardStep::Tags => w.draft.tags.clone(),
@@ -768,29 +821,33 @@ fn sync_input(w: &mut Wizard) {
         _ => String::new(),
     };
     if matches!(w.step, WizardStep::Key) {
-        w.key_pick = w
-            .key_options
-            .iter()
-            .position(|k| k.path == w.draft.key)
-            .unwrap_or(0);
+        w.key_pick = if w.draft.password {
+            w.key_options
+                .iter()
+                .position(|o| matches!(o, KeyOption::Password))
+                .unwrap_or(0)
+        } else {
+            w.key_options
+                .iter()
+                .position(|o| matches!(o, KeyOption::Key(p) if *p == w.draft.key))
+                .unwrap_or(0)
+        };
     }
 }
 
 fn build_key_options(existing: &str) -> Vec<KeyOption> {
-    let mut opts = vec![KeyOption {
-        path: String::new(),
-    }];
+    let mut opts = vec![KeyOption::Default];
     let discovered = ssh::discover_ssh_keys();
     let trimmed = existing.trim();
     let in_discovered = !trimmed.is_empty() && discovered.iter().any(|k| k == trimmed);
     if !trimmed.is_empty() && !in_discovered {
-        opts.push(KeyOption {
-            path: trimmed.to_string(),
-        });
+        opts.push(KeyOption::Key(trimmed.to_string()));
     }
     for path in discovered {
-        opts.push(KeyOption { path });
+        opts.push(KeyOption::Key(path));
     }
+    opts.push(KeyOption::Custom);
+    opts.push(KeyOption::Password);
     opts
 }
 
